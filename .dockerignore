@@ -1,0 +1,30 @@
+# Git and environment files
+.git
+.gitignore
+.env
+.env.*
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# Generated/local data and artifacts
+data/raw/
+data/processed/
+data/*.db
+models/
+mlruns/
+mlflow/
+mlflow.db
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

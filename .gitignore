@@ -40,3 +40,6 @@ Thumbs.db
 mlruns/
 models/mlflow_artifacts/
 mlflow.db
+
+# Docker Compose MLflow volume
+mlflow/

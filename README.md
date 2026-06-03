@@ -7,6 +7,7 @@
 ![Plotly](https://img.shields.io/badge/Plotly-Interactive%20Charts-3f4f75)
 ![Pytest](https://img.shields.io/badge/Pytest-Tested-brightgreen)
 ![MLflow](https://img.shields.io/badge/MLflow-Experiment%20Tracking-0194E2)
+![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED)
 
 **DirectDebit IQ predicts payment failures before they happen, saving businesses the cost of failed payments and recovery overhead.**
 
@@ -95,6 +96,7 @@ DirectDebit IQ helps payment teams answer practical questions:
 | Dashboard | Streamlit, Plotly |
 | Testing | pytest |
 | CI/CD | GitHub Actions |
+| Containerization | Docker, Docker Compose |
 
 ---
 
@@ -113,7 +115,8 @@ directdebit-iq/
 │   ├── staging/
 │   └── marts/
 ├── docs/
-│   └── DEPLOYMENT.md
+│   ├── DEPLOYMENT.md
+│   └── DOCKER.md
 ├── models/
 │   ├── failure_predictor.pkl
 │   ├── failure_predictor_metrics.json
@@ -139,6 +142,9 @@ directdebit-iq/
 │   └── test_pipeline.py
 ├── .github/workflows/ci.yml
 ├── .streamlit/config.toml
+├── .dockerignore
+├── Dockerfile
+├── docker-compose.yml
 ├── requirements.txt
 ├── Makefile
 ├── streamlit_app.py
@@ -202,7 +208,7 @@ data/processed/sql_outputs/
 python src/train.py
 ```
 
-This creates local model artifacts and logs the run to `./mlruns`:
+This creates local model artifacts and logs the run to a local SQLite MLflow backend:
 
 ```text
 models/failure_predictor.pkl
@@ -210,7 +216,7 @@ models/failure_predictor_metrics.json
 models/failure_predictor_feature_importance.csv
 models/mlflow_artifacts/feature_importance_plot.html
 models/mlflow_artifacts/confusion_matrix.html
-mlruns/
+mlflow.db
 ```
 
 ### 7. View experiment history in MLflow
@@ -218,7 +224,7 @@ mlruns/
 Run MLflow UI to view experiment history, compare runs, inspect metrics, and open logged artifacts:
 
 ```bash
-mlflow ui --backend-store-uri ./mlruns
+mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
 Then open the local MLflow page shown in the terminal, usually:
@@ -238,6 +244,46 @@ make mlflow
 ```bash
 streamlit run streamlit_app.py
 ```
+
+---
+
+## Docker
+
+DirectDebit IQ includes Docker support for running the Streamlit dashboard in a reproducible container.
+
+Build the Docker image:
+
+```bash
+docker build -t directdebit-iq .
+```
+
+Run the Streamlit dashboard:
+
+```bash
+docker run --rm -p 8501:8501 directdebit-iq
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
+
+Run the full stack with Streamlit and MLflow:
+
+```bash
+docker compose up --build
+```
+
+Or use Makefile shortcuts:
+
+```bash
+make docker-build
+make docker-run
+make docker-compose
+```
+
+More details are available in [`docs/DOCKER.md`](docs/DOCKER.md).
 
 ---
 
@@ -264,7 +310,7 @@ python src/train.py
 Run MLflow UI to view experiment history:
 
 ```bash
-mlflow ui --backend-store-uri ./mlruns
+mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
 Or use:

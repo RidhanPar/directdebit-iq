@@ -1,7 +1,8 @@
+"""MLflow configuration for DirectDebit IQ experiment tracking."""
+
 EXPERIMENT_NAME = "DirectDebit IQ - Payment Failure Prediction"
 
-# MLflow 3.x recommended local backend
-# This creates a local mlflow.db file in your project root
+# Local SQLite backend works reliably across Windows, macOS, Linux, and Docker.
 TRACKING_URI = "sqlite:///mlflow.db"
 
 RUN_TAGS = {
