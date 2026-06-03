@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: directdebit_iq
+    description: Synthetic direct-debit payment source data.
+    tables:
+      - name: payments
+        description: Raw payment-level synthetic data.
+
+models:
+  - name: stg_payments
+    description: Cleaned staging layer for payment records.
+    columns:
+      - name: payment_id
+        tests:
+          - unique
+          - not_null
+      - name: payment_status
+        tests:
+          - accepted_values:
+              values: ['success', 'failed']

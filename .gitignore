@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+ENV/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Environment
+.env
+.env.local
+
+# Data outputs
+# Keep folders, ignore generated data by default for Git.
+data/raw/*.csv
+data/processed/*.csv
+data/*.db
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Models and reports
+models/*.joblib
+models/*.pkl
+models/*.json
+models/*.csv
+models/*.png
+!models/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

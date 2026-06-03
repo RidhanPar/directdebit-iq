@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: mart_merchant_payment_performance
+    description: Merchant-level direct-debit success and failure performance mart.
+    columns:
+      - name: merchant_id
+        tests:
+          - not_null
+      - name: total_payments
+        description: Number of payments processed by the merchant.
+      - name: failure_rate
+        description: Share of payments that failed.
