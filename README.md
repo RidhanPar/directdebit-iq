@@ -6,6 +6,7 @@
 ![SQLite](https://img.shields.io/badge/SQLite-Analytics-lightgrey)
 ![Plotly](https://img.shields.io/badge/Plotly-Interactive%20Charts-3f4f75)
 ![Pytest](https://img.shields.io/badge/Pytest-Tested-brightgreen)
+![MLflow](https://img.shields.io/badge/MLflow-Experiment%20Tracking-0194E2)
 
 **DirectDebit IQ predicts payment failures before they happen, saving businesses the cost of failed payments and recovery overhead.**
 
@@ -89,6 +90,7 @@ DirectDebit IQ helps payment teams answer practical questions:
 | Storage | CSV, SQLite, SQLAlchemy |
 | Analytics | SQL, pandas, Plotly |
 | Machine learning | scikit-learn, XGBoost, imbalanced-learn |
+| Experiment tracking | MLflow |
 | Explainability | SHAP, feature importance |
 | Dashboard | Streamlit, Plotly |
 | Testing | pytest |
@@ -128,6 +130,7 @@ directdebit-iq/
 │   ├── config.py
 │   ├── data_pipeline.py
 │   ├── feature_store.py
+│   ├── mlflow_config.py
 │   ├── recommend.py
 │   ├── sql_runner.py
 │   ├── train.py
@@ -137,6 +140,7 @@ directdebit-iq/
 ├── .github/workflows/ci.yml
 ├── .streamlit/config.toml
 ├── requirements.txt
+├── Makefile
 ├── streamlit_app.py
 └── README.md
 ```
@@ -192,24 +196,81 @@ This exports CSV analysis outputs to:
 data/processed/sql_outputs/
 ```
 
-### 6. Train the ML model
+### 6. Train the ML model and log experiments with MLflow
 
 ```bash
 python src/train.py
 ```
 
-This creates:
+This creates local model artifacts and logs the run to `./mlruns`:
 
 ```text
 models/failure_predictor.pkl
 models/failure_predictor_metrics.json
 models/failure_predictor_feature_importance.csv
+models/mlflow_artifacts/feature_importance_plot.html
+models/mlflow_artifacts/confusion_matrix.html
+mlruns/
 ```
 
-### 7. Launch the Streamlit dashboard
+### 7. View experiment history in MLflow
+
+Run MLflow UI to view experiment history, compare runs, inspect metrics, and open logged artifacts:
+
+```bash
+mlflow ui --backend-store-uri ./mlruns
+```
+
+Then open the local MLflow page shown in the terminal, usually:
+
+```text
+http://127.0.0.1:5000
+```
+
+You can also use the Makefile shortcut:
+
+```bash
+make mlflow
+```
+
+### 8. Launch the Streamlit dashboard
 
 ```bash
 streamlit run streamlit_app.py
+```
+
+---
+
+## MLflow Experiment Tracking
+
+DirectDebit IQ uses MLflow so anyone cloning the repository can run experiments and compare model results in a local UI.
+
+Tracked items include:
+
+- XGBoost hyperparameters
+- AUC-ROC, Average Precision, F1, Precision, and Recall
+- Business metric: revenue at risk caught per 1,000 predictions
+- Serialized model artifact
+- Feature importance CSV
+- Feature importance plot
+- Confusion matrix plot
+
+Run training:
+
+```bash
+python src/train.py
+```
+
+Run MLflow UI to view experiment history:
+
+```bash
+mlflow ui --backend-store-uri ./mlruns
+```
+
+Or use:
+
+```bash
+make mlflow
 ```
 
 ---
