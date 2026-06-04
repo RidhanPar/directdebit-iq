@@ -45,6 +45,8 @@ st.set_page_config(
 )
 
 MODEL_PATH = PROJECT_ROOT / "models" / "failure_predictor.pkl"
+LEGACY_MODEL_PATH = PROJECT_ROOT / "models" / "fraud_model.pkl"
+JOBLIB_MODEL_PATH = PROJECT_ROOT / "models" / "payment_failure_model.joblib"
 RAW_PAYMENTS_PATH = PROJECT_ROOT / "data" / "raw" / "payments.csv"
 DB_PATH = PROJECT_ROOT / "data" / "payments.db"
 SQL_DIR = PROJECT_ROOT / "sql"
@@ -53,6 +55,10 @@ HIGH_RISK_THRESHOLD = 0.50
 CRITICAL_RISK_THRESHOLD = 0.70
 RECOVERY_RATE_ESTIMATE = 0.62
 COST_RECOVERY_MULTIPLIER = 3.0
+DEMO_ROW_COUNT = 5000
+GITHUB_REPO_URL = "https://github.com/RidhanPar/directdebit-iq"
+LINKEDIN_URL = "https://www.linkedin.com/in/ridhanparvendhan/"
+AUTHOR_NAME = "Ridhan Parvendhan"
 
 DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 RISK_ORDER = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
@@ -181,40 +187,222 @@ st.markdown(
 # -----------------------------------------------------------------------------
 # Data loading and transformation helpers
 # -----------------------------------------------------------------------------
+
+def generate_demo_payments(n: int = DEMO_ROW_COUNT, seed: int = 42) -> pd.DataFrame:
+    """Generate built-in demo payments for Streamlit Cloud when data files are absent.
+
+    Streamlit Cloud deployments often start from a clean Git repository where
+    large generated CSV/SQLite/model files are intentionally excluded. This
+    deterministic sample keeps the live demo fully functional for recruiters
+    without requiring any upload or setup step.
+    """
+    rng = np.random.default_rng(seed)
+    today = pd.Timestamp.today().normalize()
+    start_date = today - pd.Timedelta(days=730)
+
+    merchants = np.array([f"M{i:03d}" for i in range(1, 201)])
+    customers = np.array([f"C{i:04d}" for i in range(1, 5001)])
+    dates = start_date + pd.to_timedelta(rng.integers(0, 731, size=n), unit="D")
+
+    amounts = rng.lognormal(mean=np.log(85), sigma=0.75, size=n).clip(10, 500)
+    outlier_mask = rng.random(n) < 0.025
+    amounts[outlier_mask] = rng.uniform(500, 2500, size=outlier_mask.sum())
+
+    mandate_age = rng.gamma(shape=2.2, scale=170, size=n).astype(int).clip(0, 1825)
+    prev_failures = rng.choice([0, 1, 2, 3, 4, 5], size=n, p=[0.68, 0.17, 0.08, 0.04, 0.02, 0.01])
+    balance_band = rng.choice(["low", "medium", "high"], size=n, p=[0.22, 0.55, 0.23])
+    day_names = pd.Series(dates).dt.day_name().to_numpy()
+
+    failure_probability = (
+        0.075
+        + 0.055 * prev_failures
+        + 0.085 * (mandate_age < 30)
+        + 0.045 * (day_names == "Monday")
+        + 0.095 * (balance_band == "low")
+        + 0.025 * (amounts > 500)
+    ).clip(0.03, 0.78)
+    failed = rng.random(n) < failure_probability
+
+    df = pd.DataFrame(
+        {
+            "payment_id": [f"DEMO-{i + 1:06d}" for i in range(n)],
+            "merchant_id": rng.choice(merchants, size=n),
+            "customer_id": rng.choice(customers, size=n),
+            "payment_amount": amounts.round(2),
+            "currency": rng.choice(["GBP", "EUR", "USD"], size=n, p=[0.70, 0.20, 0.10]),
+            "payment_date": dates,
+            "payment_day_of_month": pd.Series(dates).dt.day.clip(upper=28),
+            "day_of_week": day_names,
+            "mandate_age_days": mandate_age,
+            "previous_failure_count": prev_failures,
+            "bank_country": rng.choice(["GB", "FR", "DE", "IE", "AU", "US"], size=n, p=[0.50, 0.14, 0.13, 0.09, 0.07, 0.07]),
+            "bank_type": rng.choice(["high_street", "challenger", "credit_union"], size=n, p=[0.62, 0.28, 0.10]),
+            "estimated_balance_band": balance_band,
+            "days_since_last_success": rng.integers(0, 91, size=n),
+            "payment_type": rng.choice(["recurring", "one_off"], size=n, p=[0.82, 0.18]),
+            "payment_status": np.where(failed, "failed", "success"),
+        }
+    )
+    df["is_failed"] = df["payment_status"].eq("failed").astype(int)
+    df["is_success"] = df["payment_status"].eq("success").astype(int)
+    df["failed_amount"] = np.where(df["is_failed"].eq(1), df["payment_amount"], 0.0)
+    df["year_month"] = pd.to_datetime(df["payment_date"]).dt.to_period("M").astype(str)
+    df.attrs["source"] = "demo"
+    return df
+
 @st.cache_data(show_spinner=False)
 def load_payments() -> pd.DataFrame:
-    """Load the generated payments dataset and add dashboard helper columns."""
-    if not RAW_PAYMENTS_PATH.exists():
-        raise FileNotFoundError(
-            f"Could not find {RAW_PAYMENTS_PATH}. Run `python data/generate_data.py` first."
-        )
+    """Load generated payments, or use built-in demo data if files are absent."""
+    if RAW_PAYMENTS_PATH.exists():
+        try:
+            df = pd.read_csv(RAW_PAYMENTS_PATH)
+            source = "file"
+        except Exception:
+            df = generate_demo_payments()
+            source = "demo"
+    else:
+        df = generate_demo_payments()
+        source = "demo"
 
-    df = pd.read_csv(RAW_PAYMENTS_PATH)
     df["payment_date"] = pd.to_datetime(df["payment_date"], errors="coerce")
     df["payment_amount"] = pd.to_numeric(df["payment_amount"], errors="coerce").fillna(0)
-    df["is_failed"] = df["payment_status"].astype(str).str.lower().eq("failed").astype(int)
-    df["is_success"] = df["payment_status"].astype(str).str.lower().eq("success").astype(int)
+    df["payment_status"] = df["payment_status"].fillna("success").astype(str).str.lower()
+    df["is_failed"] = df["payment_status"].eq("failed").astype(int)
+    df["is_success"] = df["payment_status"].eq("success").astype(int)
     df["failed_amount"] = np.where(df["is_failed"].eq(1), df["payment_amount"], 0.0)
     df["year_month"] = df["payment_date"].dt.to_period("M").astype(str)
+    df.attrs["source"] = source
     return df
 
 
 @st.cache_resource(show_spinner=False)
 def load_model_artifact() -> Dict[str, Any] | None:
-    """Load the trained model artifact if it exists."""
-    if MODEL_PATH.exists():
-        return joblib.load(MODEL_PATH)
+    """Load a trained model artifact if available; otherwise use safe fallback scoring.
+
+    The GitHub repository intentionally ignores heavy generated model files.
+    On Streamlit Cloud, the app therefore uses the transparent heuristic scorer
+    until a model artifact is generated locally and committed through a release
+    or loaded from external storage.
+    """
+    for candidate_path in [MODEL_PATH, LEGACY_MODEL_PATH, JOBLIB_MODEL_PATH]:
+        if candidate_path.exists():
+            try:
+                artifact = joblib.load(candidate_path)
+                if isinstance(artifact, dict) and "model" in artifact:
+                    return artifact
+            except Exception:
+                continue
     return None
 
 
 @st.cache_data(show_spinner=False)
 def run_sql_analyses() -> Dict[str, pd.DataFrame]:
-    """Run all SQL analyses and cache the outputs for the SQL page."""
-    analytics = SQLAnalytics(db_path=DB_PATH, sql_dir=SQL_DIR)
+    """Run SQLite analyses when the database exists.
+
+    If Streamlit Cloud is running without generated data/payments.db, callers
+    fall back to pandas-based demo analyses instead of crashing.
+    """
+    if not DB_PATH.exists() or not SQL_DIR.exists():
+        return {}
     try:
-        return analytics.run_all_analyses()
-    finally:
-        analytics.close()
+        analytics = SQLAnalytics(db_path=DB_PATH, sql_dir=SQL_DIR)
+        try:
+            return analytics.run_all_analyses()
+        finally:
+            analytics.close()
+    except Exception:
+        return {}
+
+
+def build_sql_fallback_analyses(df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    """Build SQL-equivalent analytics from the active dataframe for demo mode."""
+    working = df.copy()
+    working["mandate_age_band"] = pd.cut(
+        working["mandate_age_days"],
+        bins=[-1, 30, 90, 365, np.inf],
+        labels=["0-30 days", "31-90", "91-365", "365+"],
+    ).astype(str)
+
+    monthly = (
+        working.groupby("year_month")
+        .agg(
+            total_payments=("payment_id", "count"),
+            successful_payments=("is_success", "sum"),
+            failed_payments=("is_failed", "sum"),
+        )
+        .reset_index()
+        .sort_values("year_month")
+    )
+    monthly["success_rate_pct"] = (100 * monthly["successful_payments"] / monthly["total_payments"]).round(2)
+    monthly["vs_previous_month_change"] = monthly["success_rate_pct"].diff().fillna(0).round(2)
+
+    cohort = (
+        working.groupby(["merchant_id", "mandate_age_band"], observed=False)
+        .agg(payment_count=("payment_id", "count"), success_rate=("is_success", lambda x: round(x.mean() * 100, 2)))
+        .reset_index()
+    )
+
+    customers = (
+        working.groupby("customer_id")
+        .agg(
+            total_payments=("payment_id", "count"),
+            failure_count=("is_failed", "sum"),
+            total_amount_failed=("failed_amount", "sum"),
+        )
+        .query("total_payments >= 3")
+        .reset_index()
+    )
+    customers["failure_rate"] = customers["failure_count"] / customers["total_payments"]
+    customers["risk_score"] = customers["failure_rate"] * np.log1p(customers["failure_count"])
+    customers["risk_category"] = pd.cut(
+        customers["risk_score"],
+        bins=[-0.01, 0.10, 0.25, 0.50, np.inf],
+        labels=["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+    ).astype(str)
+    customers = customers.sort_values("risk_score", ascending=False)
+
+    bank_base = (
+        working.groupby(["bank_country", "bank_type"])
+        .agg(
+            total_payments=("payment_id", "count"),
+            success_rate=("is_success", lambda x: round(x.mean() * 100, 2)),
+            avg_payment_amount=("payment_amount", "mean"),
+        )
+        .reset_index()
+    )
+    failure_days = (
+        working[working["is_failed"].eq(1)]
+        .groupby(["bank_country", "bank_type", "day_of_week"])
+        .size()
+        .reset_index(name="failure_count")
+        .sort_values(["bank_country", "bank_type", "failure_count"], ascending=[True, True, False])
+    )
+    failure_days["rank"] = failure_days.groupby(["bank_country", "bank_type"])["failure_count"].rank(method="first", ascending=False)
+    top_days = failure_days[failure_days["rank"].eq(1)][["bank_country", "bank_type", "day_of_week"]].rename(
+        columns={"day_of_week": "most_common_failure_day"}
+    )
+    bank = bank_base.merge(top_days, on=["bank_country", "bank_type"], how="left")
+    bank["most_common_failure_day"] = bank["most_common_failure_day"].fillna("No failures")
+
+    return {
+        "monthly_success_rates": monthly,
+        "merchant_cohort_analysis": cohort,
+        "high_risk_customers": customers,
+        "bank_country_analysis": bank,
+    }
+
+
+def get_sql_results(df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    """Return SQL outputs from SQLite or dataframe fallback.
+
+    First try the SQLite-backed SQL runner. If the database is missing
+    or SQL execution fails, use pandas fallback analyses so Streamlit Cloud
+    demo mode still works for recruiters.
+    """
+    results = run_sql_analyses()
+    if results:
+        return results
+    return build_sql_fallback_analyses(df)
 
 
 def pct(series: pd.Series) -> float:
@@ -771,7 +959,7 @@ def page_executive_dashboard(df: pd.DataFrame) -> None:
 
     st.markdown("---")
 
-    monthly = run_sql_analyses().get("monthly_success_rates", pd.DataFrame())
+    monthly = get_sql_results(df).get("monthly_success_rates", pd.DataFrame())
     if not monthly.empty:
         monthly_last12 = monthly.tail(12).copy()
     else:
@@ -868,7 +1056,7 @@ def page_predict_payment_failures(df: pd.DataFrame) -> None:
             mime="text/csv",
             use_container_width=True,
         )
-        use_sample = st.checkbox("Use 250 sample upcoming payments", value=False)
+        use_sample = st.checkbox("Demo Mode: use 250 sample upcoming payments", value=st.session_state.get("demo_mode", True))
 
     with upload_col:
         uploaded_file = st.file_uploader("Upload upcoming payments CSV", type=["csv"])
@@ -888,11 +1076,13 @@ def page_predict_payment_failures(df: pd.DataFrame) -> None:
             np.arange(len(upcoming_df)) % 14 + 1, unit="D"
         )
         upcoming_df["payment_status"] = "success"
-        st.info("Using 250 sample upcoming payments generated from the historical dataset.")
+        st.info("Demo Mode is using 250 sample upcoming payments, so reviewers can see predictions without uploading a file.")
 
     analyse = st.button("Analyse Payments", type="primary", use_container_width=True)
 
-    if analyse:
+    auto_demo_score = uploaded_file is None and use_sample and upcoming_df is not None
+
+    if analyse or (auto_demo_score and st.session_state.get("scored_payments") is None):
         if upcoming_df is None or upcoming_df.empty:
             st.warning("Upload a CSV or select the sample option before analysing payments.")
             return
@@ -903,7 +1093,7 @@ def page_predict_payment_failures(df: pd.DataFrame) -> None:
 
     scored_df = st.session_state.get("scored_payments")
     if scored_df is None:
-        st.info("No prediction results yet. Upload a CSV and click Analyse Payments.")
+        st.info("No prediction results yet. Upload a CSV or keep Demo Mode enabled to auto-load sample payments.")
         return
 
     high_risk = scored_df[scored_df["risk_level"].isin(["HIGH", "CRITICAL"])]
@@ -1123,11 +1313,11 @@ def page_explainability(df: pd.DataFrame) -> None:
 # -----------------------------------------------------------------------------
 # Page 5: SQL Analytics
 # -----------------------------------------------------------------------------
-def page_sql_analytics() -> None:
+def page_sql_analytics(df: pd.DataFrame) -> None:
     render_header("Run and visualise the four SQLite analysis queries.")
 
     with st.spinner("Running SQL analyses through SQLite..."):
-        results = run_sql_analyses()
+        results = get_sql_results(df)
 
     # 1. Monthly success rates
     monthly = results["monthly_success_rates"]
@@ -1206,15 +1396,17 @@ def page_sql_analytics() -> None:
 # App router
 # -----------------------------------------------------------------------------
 def main() -> None:
-    try:
-        payments = load_payments()
-    except FileNotFoundError as exc:
-        st.error(str(exc))
-        st.stop()
+    payments = load_payments()
+    data_source = payments.attrs.get("source", "file")
 
     with st.sidebar:
         st.markdown("### 💳 DirectDebit IQ")
         st.caption("Payment Success Analytics & Failure Predictor")
+        st.session_state["demo_mode"] = st.checkbox(
+            "Demo Mode",
+            value=True,
+            help="Loads built-in sample data/results so recruiters can review the live app without uploading files.",
+        )
         page = st.radio(
             "Navigation",
             [
@@ -1232,6 +1424,30 @@ def main() -> None:
         st.metric("Dataset", f"{len(payments):,} rows")
         st.caption("Built for stakeholder demos, analytics portfolios, and ML project review.")
 
+        with st.expander("About This Project", expanded=True):
+            st.markdown(
+                f"""
+                **What it demonstrates**  
+                End-to-end payment analytics, ML failure prediction, retry recommendations, SQL analysis, explainability, and Streamlit deployment readiness.
+
+                **Technical stack**  
+                Python, pandas, scikit-learn, XGBoost, SQLite, SQL, Plotly, Streamlit, MLflow, pytest, Docker.
+
+                **GitHub**  
+                [DirectDebit IQ repository]({GITHUB_REPO_URL})
+
+                **Author**  
+                {AUTHOR_NAME}  
+                [LinkedIn]({LINKEDIN_URL})
+                """
+            )
+
+    if data_source == "demo":
+        st.info(
+            "Demo Mode data is active because generated CSV/SQLite files were not found. "
+            "The app remains fully usable for reviewers without any setup."
+        )
+
     if page == "📊 Executive Dashboard":
         page_executive_dashboard(payments)
     elif page == "🔮 Predict Payment Failures":
@@ -1241,7 +1457,7 @@ def main() -> None:
     elif page == "🧠 Why Did It Fail?":
         page_explainability(payments)
     elif page == "📈 SQL Analytics":
-        page_sql_analytics()
+        page_sql_analytics(payments)
 
 
 if __name__ == "__main__":

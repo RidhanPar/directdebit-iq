@@ -8,6 +8,7 @@
 ![Pytest](https://img.shields.io/badge/Pytest-Tested-brightgreen)
 ![MLflow](https://img.shields.io/badge/MLflow-Experiment%20Tracking-0194E2)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED)
+![Streamlit Cloud Ready](https://img.shields.io/badge/Streamlit%20Cloud-Ready-FF4B4B)
 
 **DirectDebit IQ predicts payment failures before they happen, saving businesses the cost of failed payments and recovery overhead.**
 
@@ -115,8 +116,10 @@ directdebit-iq/
 │   ├── staging/
 │   └── marts/
 ├── docs/
+│   ├── BUSINESS_IMPACT.md
 │   ├── DEPLOYMENT.md
-│   └── DOCKER.md
+│   ├── DOCKER.md
+│   └── STREAMLIT_CLOUD_CHECKLIST.md
 ├── models/
 │   ├── failure_predictor.pkl
 │   ├── failure_predictor_metrics.json
@@ -146,6 +149,7 @@ directdebit-iq/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
+├── runtime.txt
 ├── Makefile
 ├── streamlit_app.py
 └── README.md
@@ -244,6 +248,32 @@ make mlflow
 ```bash
 streamlit run streamlit_app.py
 ```
+
+The dashboard includes **Demo Mode**, enabled by default. If generated data, SQLite outputs, or model artifacts are missing, the app loads built-in sample data and uses transparent fallback scoring so reviewers can see the product working immediately.
+
+---
+
+## Streamlit Cloud Deployment
+
+DirectDebit IQ is prepared for Streamlit Cloud deployment. Recruiters can open the live link and see the app working without uploading any files.
+
+Recommended Streamlit Cloud settings:
+
+| Setting | Value |
+|---|---|
+| Main file path | `streamlit_app.py` |
+| Python version | 3.10 or 3.11 (`runtime.txt` pins Python 3.10) |
+| Secrets | None required for demo mode |
+
+Deployment readiness checks are documented in [`docs/STREAMLIT_CLOUD_CHECKLIST.md`](docs/STREAMLIT_CLOUD_CHECKLIST.md).
+
+Demo Mode includes:
+
+- Built-in sample payment history if `data/raw/payments.csv` is missing.
+- Sample upcoming payments on the prediction page.
+- Fallback scoring if the trained model file is not present.
+- SQL analytics fallback if `data/payments.db` is not present.
+- Sidebar **About This Project** section with stack, GitHub, author, and LinkedIn.
 
 ---
 
@@ -377,6 +407,8 @@ Interactive charts and raw SQL result tables for stakeholder analysis.
 
 Live demo link: **Coming soon**  
 Streamlit Cloud placeholder: `https://your-directdebit-iq-demo.streamlit.app/`
+
+The live dashboard is designed to load immediately in Demo Mode, so recruiters can review the project without uploading CSV files or generating local artifacts.
 
 ---
 
