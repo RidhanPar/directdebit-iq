@@ -440,32 +440,85 @@ def render_header(subtitle: str | None = None) -> None:
     )
 
 
+
 def render_product_hero(subtitle: str | None = None) -> None:
     """Render the executive-facing product introduction."""
+    subtitle_text = subtitle or "Predict payment failures, prioritise retries, and explain payment risk before collection day."
+
     st.markdown(
         """
-        <div class="hero-panel">
-            <div class="hero-kicker">PAYMENT OPERATIONS DECISIONING</div>
-            <div class="hero-title">Catch likely failures before collection day.</div>
-            <div class="hero-copy">
-                DirectDebit IQ combines payment-success analytics, explainable risk scoring,
-                and prioritised retry recommendations in one review-ready workflow.
-            </div>
-            <div class="trust-strip">
-                <span class="trust-chip">Synthetic-data prototype</span>
-                <span class="trust-chip">Out-of-time model validation</span>
-                <span class="trust-chip">Leakage-aware historical features</span>
-                <span class="trust-chip">Human review before action</span>
+        <style>
+            .hero-card {
+                background: linear-gradient(135deg, #07111f 0%, #0b5fff 58%, #00a878 100%);
+                padding: 38px 40px;
+                border-radius: 28px;
+                margin-bottom: 30px;
+                color: white;
+                box-shadow: 0 22px 55px rgba(15, 23, 42, 0.22);
+            }
+
+            .hero-eyebrow {
+                font-size: 0.78rem;
+                font-weight: 800;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                opacity: 0.88;
+                margin-bottom: 12px;
+            }
+
+            .hero-title {
+                font-size: 2.45rem;
+                line-height: 1.08;
+                font-weight: 850;
+                margin: 0 0 12px 0;
+                color: white;
+            }
+
+            .hero-subtitle {
+                font-size: 1.08rem;
+                line-height: 1.6;
+                max-width: 900px;
+                opacity: 0.94;
+                margin-bottom: 22px;
+            }
+
+            .hero-pill-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .hero-pill {
+                background: rgba(255, 255, 255, 0.16);
+                border: 1px solid rgba(255, 255, 255, 0.24);
+                color: white;
+                padding: 8px 13px;
+                border-radius: 999px;
+                font-size: 0.82rem;
+                font-weight: 750;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"""
+        <div class="hero-card">
+            <div class="hero-eyebrow">Payment operations intelligence</div>
+            <div class="hero-title">DirectDebit IQ — Payment Intelligence Platform</div>
+            <div class="hero-subtitle">{subtitle_text}</div>
+            <div class="hero-pill-row">
+                <span class="hero-pill">Payment success analytics</span>
+                <span class="hero-pill">Failure risk scoring</span>
+                <span class="hero-pill">Retry prioritisation</span>
+                <span class="hero-pill">SQL business insights</span>
+                <span class="hero-pill">Explainable decisions</span>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(
-        f'<div class="app-subtitle">{subtitle or "Predict failures, prioritise retries, and explain payment risk."}</div>',
-        unsafe_allow_html=True,
-    )
-
 
 def metric_card(label: str, value: str, help_text: str = "") -> str:
     """Return HTML for a custom KPI card."""
@@ -646,7 +699,7 @@ def score_payments(upcoming: pd.DataFrame, history_df: pd.DataFrame) -> pd.DataF
         scoring["days_since_failure"] = featured.get("days_since_failure", pd.Series(999)).to_numpy()
     else:
         probabilities = heuristic_failure_probability(scoring, history_df)
-        model_source = "business-rule fallback"
+        model_source = "baseline risk scorer"
         scoring["merchant_failure_rate"] = scoring["merchant_id"].map(
             history_df.groupby("merchant_id")["is_failed"].mean()
         ).fillna(history_df["is_failed"].mean())
@@ -935,7 +988,7 @@ def plot_shap_or_proxy(row: pd.Series, history_df: pd.DataFrame) -> go.Figure:
         )
     )
     fig.update_layout(
-        title="SHAP-style Risk Waterfall — business-rule fallback",
+        title="SHAP-style Risk Waterfall — baseline risk scorer",
         yaxis_title="Risk score contribution",
         height=480,
         template="plotly_white",
@@ -1472,7 +1525,7 @@ def main() -> None:
         st.session_state["demo_mode"] = st.checkbox(
             "Demo Mode",
             value=True,
-            help="Loads built-in sample data/results so recruiters can review the live app without uploading files.",
+            help="Loads built-in sample data/results so the app can be reviewed without uploading files.",
         )
         page = st.radio(
             "Navigation",
@@ -1486,10 +1539,10 @@ def main() -> None:
             label_visibility="collapsed",
         )
         st.markdown("---")
-        model_status = "Loaded" if load_model_artifact() is not None else "Fallback rules"
+        model_status = "Loaded" if load_model_artifact() is not None else "Baseline scorer"
         st.metric("Model", model_status)
         st.metric("Dataset", f"{len(payments):,} rows")
-        st.caption("Built for stakeholder demos, analytics portfolios, and ML project review.")
+        st.caption("Built as a payment analytics and machine learning case study.")
 
         with st.expander("About This Project", expanded=True):
             st.markdown(
@@ -1515,7 +1568,7 @@ def main() -> None:
     if data_source == "demo":
         st.info(
             "Demo Mode data is active because generated CSV/SQLite files were not found. "
-            "The app remains fully usable for reviewers without any setup."
+            "The app remains fully usable without any setup."
         )
 
     if page == "📊 Executive Dashboard":
