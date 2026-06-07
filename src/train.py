@@ -36,7 +36,6 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
 
 from src import config
@@ -62,6 +61,7 @@ FAILURE_IMPORTANCE_PATH = PROJECT_ROOT / "models" / "failure_predictor_feature_i
 MLFLOW_ARTIFACT_DIR = PROJECT_ROOT / "models" / "mlflow_artifacts"
 BUSINESS_THRESHOLD = 0.30
 RECOVERY_COST_MULTIPLIER = 3.0
+OUT_OF_TIME_TEST_SHARE = 0.20
 
 
 def configure_mlflow() -> None:
@@ -101,6 +101,39 @@ def build_training_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series, Feat
     X = model_df.drop(columns=[config.TARGET_BINARY_COLUMN])
     y = model_df[config.TARGET_BINARY_COLUMN].astype(int)
     return X, y, store
+
+
+def out_of_time_split(
+    X: pd.DataFrame,
+    y: pd.Series,
+    payment_amounts: pd.Series,
+    payment_dates: pd.Series,
+    test_share: float = OUT_OF_TIME_TEST_SHARE,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.Series, pd.Timestamp]:
+    """Split model data chronologically so evaluation represents future payments."""
+    if not 0 < test_share < 1:
+        raise ValueError("test_share must be between 0 and 1.")
+
+    split_frame = pd.DataFrame(
+        {
+            "row_position": np.arange(len(X)),
+            "payment_date": pd.to_datetime(payment_dates, errors="raise").to_numpy(),
+        }
+    ).sort_values(["payment_date", "row_position"])
+    split_index = max(1, min(len(split_frame) - 1, int(len(split_frame) * (1 - test_share))))
+    train_positions = split_frame.iloc[:split_index]["row_position"].to_numpy()
+    test_positions = split_frame.iloc[split_index:]["row_position"].to_numpy()
+    cutoff_date = pd.Timestamp(split_frame.iloc[split_index]["payment_date"])
+
+    return (
+        X.iloc[train_positions],
+        X.iloc[test_positions],
+        y.iloc[train_positions],
+        y.iloc[test_positions],
+        payment_amounts.iloc[train_positions],
+        payment_amounts.iloc[test_positions],
+        cutoff_date,
+    )
 
 
 def _build_xgboost_model(scale_pos_weight: float) -> XGBClassifier:
@@ -224,7 +257,8 @@ def _log_mlflow_run(
     mlflow.log_params(hyperparameters)
     mlflow.log_params(
         {
-            "test_size": config.TEST_SIZE,
+            "test_size": OUT_OF_TIME_TEST_SHARE,
+            "validation_method": "out_of_time_holdout",
             "business_threshold": BUSINESS_THRESHOLD,
             "recovery_cost_multiplier": RECOVERY_COST_MULTIPLIER,
             "feature_count": metrics["features"],
@@ -255,17 +289,15 @@ def train_model() -> dict[str, Any]:
     X, y, _store = build_training_data(df)
 
     # Keep payment amounts aligned with X/y for the business metric.
-    payment_amounts = df.sort_values(["customer_id", "payment_date", "payment_id"]).reset_index(drop=True)[
-        "payment_amount"
-    ]
+    aligned_payments = df.sort_values(["customer_id", "payment_date", "payment_id"]).reset_index(drop=True)
+    payment_amounts = aligned_payments["payment_amount"]
+    payment_dates = aligned_payments["payment_date"]
 
-    X_train, X_test, y_train, y_test, amount_train, amount_test = train_test_split(
+    X_train, X_test, y_train, y_test, amount_train, amount_test, cutoff_date = out_of_time_split(
         X,
         y,
         payment_amounts,
-        test_size=config.TEST_SIZE,
-        random_state=config.RANDOM_SEED,
-        stratify=y,
+        payment_dates,
     )
 
     negative_count = int((y_train == 0).sum())
@@ -289,6 +321,8 @@ def train_model() -> dict[str, Any]:
             "features": int(X.shape[1]),
             "test_rows": int(len(y_test)),
             "failure_rate": float(y.mean()),
+            "validation_method": "out_of_time_holdout",
+            "validation_cutoff_date": cutoff_date.strftime("%Y-%m-%d"),
             "threshold": BUSINESS_THRESHOLD,
             "roc_auc": float(roc_auc_score(y_test, probabilities)),
             "average_precision": float(average_precision_score(y_test, probabilities)),

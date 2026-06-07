@@ -31,7 +31,7 @@ For a quick review against a junior data scientist or analytics role:
 | Dashboard and stakeholder communication | [`streamlit_app.py`](streamlit_app.py), [`app/dashboard.py`](app/dashboard.py) |
 | Reproducibility and quality checks | [`Dockerfile`](Dockerfile), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 
-**Important limitation:** all results are based on synthetic data. The current stratified random split is useful for prototype comparison, but a production assessment should use an out-of-time holdout and merchant-level validation before any operational decision is automated.
+**Important limitation:** all results are based on synthetic data. Training now uses an out-of-time holdout; a production assessment must additionally validate performance across merchants, countries, payment-value bands, and operational capacity before any decision is automated. See the [`model card`](docs/MODEL_CARD.md).
 
 ---
 
@@ -410,7 +410,9 @@ Interactive charts and raw SQL result tables for stakeholder analysis.
 
 ## Live Demo
 
-No public demo is currently published. The dashboard is designed to load immediately in Demo Mode when run locally, so reviewers do not need to upload CSV files or generate artifacts first.
+**[Open the live DirectDebit IQ dashboard](https://directdebit-iq.streamlit.app/)**
+
+The dashboard loads immediately in Demo Mode, so reviewers do not need to upload CSV files or generate artifacts first.
 
 ---
 

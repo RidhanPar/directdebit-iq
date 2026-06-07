@@ -90,7 +90,7 @@ Machine learning outperforms simple rule-based systems when the decision depends
 
 ## External Context Used
 
-- GoCardless guidance on why Direct Debit payments fail, including insufficient funds and invalid or closed bank accounts.
-- Bottomline commentary estimating failed-payment recovery costs at £50–£100 per payment.
-- Treasury Management/Bacs-linked commentary citing repair costs up to £50 per failed Direct Debit.
+- [GoCardless guidance on why bank debit payments fail](https://gocardless.com/en-us/guides/posts/why-bank-debit-payments-fail/), including insufficient funds and invalid or closed bank accounts.
+- [Bottomline commentary on taking control of Direct Debit failures](https://www.bottomline.com/resources/blog/taking-control-direct-debit-failures).
+- [Bottomline commentary on the hidden cost of payment failures](https://www.bottomline.com/newsroom/events/hidden-cost-payment-failures-and-how-solve-them).
 - Fraud and payment-risk industry commentary explaining that machine learning can adapt better than static rules, while still requiring validation, monitoring, and governance.
