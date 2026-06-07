@@ -409,6 +409,7 @@ def build_sql_fallback_analyses(df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
 def get_sql_results(df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     """Return SQL outputs from SQLite or dataframe fallback.
 
+    Important: do not call this function from inside itself.
     First try the SQLite-backed SQL runner. If the database is missing
     or SQL execution fails, use pandas fallback analyses so Streamlit Cloud
     demo mode still works for recruiters.
@@ -439,7 +440,7 @@ def render_header(subtitle: str | None = None) -> None:
     )
 
 
-def render_product_hero() -> None:
+def render_product_hero(subtitle: str | None = None) -> None:
     """Render the executive-facing product introduction."""
     st.markdown(
         """
