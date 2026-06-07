@@ -16,6 +16,25 @@ This project is a professional, portfolio-ready data science product focused on 
 
 ---
 
+## Reviewer Guide
+
+For a quick review against a junior data scientist or analytics role:
+
+| Capability | Evidence |
+|---|---|
+| Data collection and realistic synthetic generation | [`data/generate_data.py`](data/generate_data.py) |
+| Data cleaning and schema validation | [`src/data_pipeline.py`](src/data_pipeline.py), [`tests/`](tests/) |
+| Leakage-aware feature engineering | [`src/feature_store.py`](src/feature_store.py) |
+| SQL analytics and dbt-style models | [`sql/`](sql/), [`dbt_models/`](dbt_models/) |
+| Model development and experiment tracking | [`src/train.py`](src/train.py), [`src/mlflow_config.py`](src/mlflow_config.py) |
+| Business impact and limitations | [`docs/BUSINESS_IMPACT.md`](docs/BUSINESS_IMPACT.md) |
+| Dashboard and stakeholder communication | [`streamlit_app.py`](streamlit_app.py), [`app/dashboard.py`](app/dashboard.py) |
+| Reproducibility and quality checks | [`Dockerfile`](Dockerfile), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+
+**Important limitation:** all results are based on synthetic data. The current stratified random split is useful for prototype comparison, but a production assessment should use an out-of-time holdout and merchant-level validation before any operational decision is automated.
+
+---
+
 ## Business Context
 
 Failed direct debit payments create avoidable cost, operational workload, customer friction, and cash-flow risk. In many payment operations, a single failed direct debit can cost around **£5–£25 per failure** when bank fees, support handling, customer communication, retry processing, and recovery overhead are included.
@@ -162,7 +181,7 @@ directdebit-iq/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/directdebit-iq.git
+git clone https://github.com/RidhanPar/directdebit-iq.git
 cd directdebit-iq
 ```
 
@@ -389,26 +408,9 @@ Interactive charts and raw SQL result tables for stakeholder analysis.
 
 ---
 
-## Screenshots
-
-> Add screenshots after deploying the dashboard.
-
-| Page | Screenshot |
-|---|---|
-| Executive Dashboard | `docs/screenshots/01_executive_dashboard.png` |
-| Predict Payment Failures | `docs/screenshots/02_prediction_page.png` |
-| Retry Recommendations | `docs/screenshots/03_retry_recommendations.png` |
-| Explainability | `docs/screenshots/04_explainability.png` |
-| SQL Analytics | `docs/screenshots/05_sql_analytics.png` |
-
----
-
 ## Live Demo
 
-Live demo link: **Coming soon**  
-Streamlit Cloud placeholder: `https://your-directdebit-iq-demo.streamlit.app/`
-
-The live dashboard is designed to load immediately in Demo Mode, so recruiters can review the project without uploading CSV files or generating local artifacts.
+No public demo is currently published. The dashboard is designed to load immediately in Demo Mode when run locally, so reviewers do not need to upload CSV files or generate artifacts first.
 
 ---
 
