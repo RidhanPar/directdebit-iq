@@ -26,6 +26,7 @@ from src import config
 from src.feature_store import FeatureStore
 from src.recommend import build_retry_recommendations
 from src.sql_runner import SQLAnalytics
+from src.train import out_of_time_split
 
 EXPECTED_PAYMENT_COLUMNS = {
     "payment_id",
@@ -219,6 +220,26 @@ def test_model_trains_and_predicts() -> None:
 
     assert len(probabilities) == len(X_test)
     assert np.all((probabilities >= 0) & (probabilities <= 1))
+
+
+def test_out_of_time_split_keeps_future_rows_in_test_set() -> None:
+    dates = pd.Series(pd.date_range("2026-01-01", periods=20, freq="D"))
+    X = pd.DataFrame({"feature": np.arange(20)})
+    y = pd.Series(([0, 1] * 10), name="is_failed")
+    amounts = pd.Series(np.arange(20) + 10.0)
+
+    X_train, X_test, _, _, _, _, cutoff = out_of_time_split(
+        X,
+        y,
+        amounts,
+        dates,
+        test_share=0.25,
+    )
+
+    assert len(X_train) == 15
+    assert len(X_test) == 5
+    assert cutoff == pd.Timestamp("2026-01-16")
+    assert dates.iloc[X_train.index].max() < dates.iloc[X_test.index].min()
 
 
 def test_retry_recommender_returns_required_fields() -> None:

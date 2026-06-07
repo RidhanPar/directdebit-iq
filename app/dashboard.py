@@ -57,6 +57,7 @@ RECOVERY_RATE_ESTIMATE = 0.62
 COST_RECOVERY_MULTIPLIER = 3.0
 DEMO_ROW_COUNT = 5000
 GITHUB_REPO_URL = "https://github.com/RidhanPar/directdebit-iq"
+LIVE_DEMO_URL = "https://directdebit-iq.streamlit.app/"
 LINKEDIN_URL = "https://www.linkedin.com/in/ridhanparvendhan/"
 AUTHOR_NAME = "Ridhan Parvendhan"
 
@@ -94,6 +95,19 @@ st.markdown(
             color: #64748b;
             font-size: 1rem;
             margin-bottom: 1.25rem;
+        }
+        .hero-panel {
+            background: linear-gradient(135deg, #071a3d 0%, #0b5fff 58%, #00a878 130%);
+            border-radius: 24px; padding: 28px 30px; color: white;
+            box-shadow: 0 20px 48px rgba(11, 95, 255, 0.20); margin-bottom: 1.35rem;
+        }
+        .hero-kicker { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.14em; opacity: 0.78; }
+        .hero-title { font-size: 2.35rem; font-weight: 850; letter-spacing: -0.04em; margin: 0.35rem 0; }
+        .hero-copy { font-size: 1rem; opacity: 0.9; max-width: 820px; line-height: 1.55; }
+        .trust-strip { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem; }
+        .trust-chip {
+            border: 1px solid rgba(255,255,255,0.28); background: rgba(255,255,255,0.12);
+            border-radius: 999px; padding: 6px 11px; font-size: 0.78rem; font-weight: 750;
         }
         .metric-card {
             background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
@@ -421,6 +435,29 @@ def render_header(subtitle: str | None = None) -> None:
     """Render the product-style dashboard header."""
     st.markdown(
         '<div class="app-title">DirectDebit IQ — Payment Intelligence Platform</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_product_hero() -> None:
+    """Render the executive-facing product introduction."""
+    st.markdown(
+        """
+        <div class="hero-panel">
+            <div class="hero-kicker">PAYMENT OPERATIONS DECISIONING</div>
+            <div class="hero-title">Catch likely failures before collection day.</div>
+            <div class="hero-copy">
+                DirectDebit IQ combines payment-success analytics, explainable risk scoring,
+                and prioritised retry recommendations in one review-ready workflow.
+            </div>
+            <div class="trust-strip">
+                <span class="trust-chip">Synthetic-data prototype</span>
+                <span class="trust-chip">Out-of-time model validation</span>
+                <span class="trust-chip">Leakage-aware historical features</span>
+                <span class="trust-chip">Human review before action</span>
+            </div>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -938,6 +975,7 @@ def style_scored_table(df: pd.DataFrame):
 # Page 1: Executive Dashboard
 # -----------------------------------------------------------------------------
 def page_executive_dashboard(df: pd.DataFrame) -> None:
+    render_product_hero()
     render_header("Executive health view for payment success, failed value, and merchant risk.")
 
     total_payments = len(df)
@@ -1115,6 +1153,34 @@ def page_predict_payment_failures(df: pd.DataFrame) -> None:
     )
 
     st.success(f"{len(high_risk):,} payments at HIGH risk | {format_currency(total_at_risk)} total at risk")
+    st.subheader("Operations capacity planner")
+    minimum_capacity = min(10, len(scored_df))
+    review_capacity = st.slider(
+        "Daily manual-review capacity",
+        min_value=minimum_capacity,
+        max_value=min(250, len(scored_df)),
+        value=min(50, len(scored_df)),
+        step=max(1, minimum_capacity),
+        help="Prioritises the highest risk-value payments the team can review today.",
+    )
+    priority_queue = (
+        scored_df.assign(priority_value=scored_df["risk_probability"] * scored_df["payment_amount"])
+        .sort_values("priority_value", ascending=False)
+        .head(review_capacity)
+    )
+    capacity_cols = st.columns(3)
+    capacity_cols[0].markdown(
+        metric_card("Reviews Today", f"{review_capacity:,}", "Highest risk-value payments"),
+        unsafe_allow_html=True,
+    )
+    capacity_cols[1].markdown(
+        metric_card("Value Reviewed", format_currency(float(priority_queue["payment_amount"].sum())), "Inside review capacity"),
+        unsafe_allow_html=True,
+    )
+    capacity_cols[2].markdown(
+        metric_card("Expected Failures Covered", f"{priority_queue['risk_probability'].sum():.1f}", "Probability-weighted estimate"),
+        unsafe_allow_html=True,
+    )
     st.dataframe(style_scored_table(scored_df), use_container_width=True, height=430)
 
     csv = scored_df.to_csv(index=False).encode("utf-8")
@@ -1435,6 +1501,9 @@ def main() -> None:
 
                 **GitHub**  
                 [DirectDebit IQ repository]({GITHUB_REPO_URL})
+
+                **Live demo**
+                [Open DirectDebit IQ]({LIVE_DEMO_URL})
 
                 **Author**  
                 {AUTHOR_NAME}  
