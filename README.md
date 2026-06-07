@@ -29,7 +29,7 @@ For a quick review against a junior data scientist or analytics role:
 | Model development and experiment tracking | [`src/train.py`](src/train.py), [`src/mlflow_config.py`](src/mlflow_config.py) |
 | Business impact and limitations | [`docs/BUSINESS_IMPACT.md`](docs/BUSINESS_IMPACT.md) |
 | Dashboard and stakeholder communication | [`streamlit_app.py`](streamlit_app.py), [`app/dashboard.py`](app/dashboard.py) |
-| Reproducibility and quality checks | [`Dockerfile`](Dockerfile), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+| Reproducibility and quality checks | [`Dockerfile`](Dockerfile), Streamlit runtime smoke tests in [`tests/`](tests/), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 
 **Important limitation:** all results are based on synthetic data. Training now uses an out-of-time holdout; a production assessment must additionally validate performance across merchants, countries, payment-value bands, and operational capacity before any decision is automated. See the [`model card`](docs/MODEL_CARD.md).
 
