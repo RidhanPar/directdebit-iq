@@ -1,464 +1,189 @@
-# DirectDebit IQ — Payment Success Analytics & Failure Predictor
+# DirectDebit IQ
 
+**Auditable direct-debit risk and retry automation with MLflow, SQL, CI, and human review.**
+
+[![CI](https://github.com/RidhanPar/directdebit-iq/actions/workflows/ci.yml/badge.svg)](https://github.com/RidhanPar/directdebit-iq/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
-![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-ff4b4b)
-![XGBoost](https://img.shields.io/badge/XGBoost-ML-green)
-![SQLite](https://img.shields.io/badge/SQLite-Analytics-lightgrey)
-![Plotly](https://img.shields.io/badge/Plotly-Interactive%20Charts-3f4f75)
+![FastAPI](https://img.shields.io/badge/FastAPI-Action%20API-009688)
+![Streamlit](https://img.shields.io/badge/Streamlit-Live%20Dashboard-ff4b4b)
+![MLflow](https://img.shields.io/badge/MLflow-Tracked-0194E2)
+![n8n](https://img.shields.io/badge/n8n-Approval%20Workflow-EA4B71)
 ![Pytest](https://img.shields.io/badge/Pytest-Tested-brightgreen)
-![MLflow](https://img.shields.io/badge/MLflow-Experiment%20Tracking-0194E2)
-![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED)
-![Streamlit Cloud Ready](https://img.shields.io/badge/Streamlit%20Cloud-Ready-FF4B4B)
 
-**DirectDebit IQ predicts payment failures before they happen, saving businesses the cost of failed payments and recovery overhead.**
+[Open live dashboard](https://directdebit-iq.streamlit.app/) | [API documentation](docs/API.md) | [Security and governance](docs/SECURITY_AND_GOVERNANCE.md) | [Evaluation scorecard](docs/EVALUATION_SCORECARD.md)
 
-This project is a professional, portfolio-ready data science product focused on payment success analytics, direct debit failure prediction, customer risk segmentation, merchant performance monitoring, SQL analytics, and retry recommendations.
+DirectDebit IQ predicts scheduled payment failures, explains the risk, recommends a retry, and turns high-risk scores into governed operational actions. Customer-impacting retries require a reviewer decision, carry an idempotency key, and produce queryable audit and trace evidence.
 
----
+> **Evidence boundary:** the dataset and financial benefit estimates are synthetic scenarios. The project demonstrates engineering, analytics, and governance controls; it does not claim validated production performance or guaranteed financial return.
 
-## Reviewer Guide
-
-For a quick review against a junior data scientist or analytics role:
+## Five-Minute Review
 
 | Capability | Evidence |
 |---|---|
-| Data collection and realistic synthetic generation | [`data/generate_data.py`](data/generate_data.py) |
-| Data cleaning and schema validation | [`src/data_pipeline.py`](src/data_pipeline.py), [`tests/`](tests/) |
-| Leakage-aware feature engineering | [`src/feature_store.py`](src/feature_store.py) |
-| SQL analytics and dbt-style models | [`sql/`](sql/), [`dbt_models/`](dbt_models/) |
-| Model development and experiment tracking | [`src/train.py`](src/train.py), [`src/mlflow_config.py`](src/mlflow_config.py) |
-| Business impact and limitations | [`docs/BUSINESS_IMPACT.md`](docs/BUSINESS_IMPACT.md) |
-| Dashboard and stakeholder communication | [`streamlit_app.py`](streamlit_app.py), [`app/dashboard.py`](app/dashboard.py) |
-| Reproducibility and quality checks | [`Dockerfile`](Dockerfile), Streamlit runtime smoke tests in [`tests/`](tests/), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+| Risk model and out-of-time evaluation | [`src/train.py`](src/train.py), [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) |
+| SQL analytics and reproducible feature pipeline | [`sql/`](sql/), [`src/feature_store.py`](src/feature_store.py) |
+| Stakeholder dashboard and modular page boundary | [`app/dashboard.py`](app/dashboard.py), [`app/pages.py`](app/pages.py), [`app/automation_page.py`](app/automation_page.py), [`app/action_api_client.py`](app/action_api_client.py) |
+| Authenticated production API | [`api/main.py`](api/main.py), [`api/auth.py`](api/auth.py) |
+| Human approval and real retry execution | [`api/service.py`](api/service.py), [`automation/n8n_retry_approval_workflow.json`](automation/n8n_retry_approval_workflow.json) |
+| Prediction, reviewer, and action audit records | [`api/models.py`](api/models.py) |
+| Trace IDs, structured logs, and persisted spans | [`api/observability.py`](api/observability.py) |
+| Approval-safe optional LLM planner | [`src/operations_agent.py`](src/operations_agent.py) |
+| Automated governance evaluation | [`evaluations/run_action_evaluation.py`](evaluations/run_action_evaluation.py), [`evaluations/results/action_workflow_results.json`](evaluations/results/action_workflow_results.json) |
+| Tests, CI, containers, and cloud blueprint | [`tests/`](tests/), [`.github/workflows/ci.yml`](.github/workflows/ci.yml), [`render.yaml`](render.yaml) |
 
-**Important limitation:** all results are based on synthetic data. Training now uses an out-of-time holdout; a production assessment must additionally validate performance across merchants, countries, payment-value bands, and operational capacity before any decision is automated. See the [`model card`](docs/MODEL_CARD.md).
+## Score-to-Action Architecture
 
----
-
-## Business Context
-
-Failed direct debit payments create avoidable cost, operational workload, customer friction, and cash-flow risk. In many payment operations, a single failed direct debit can cost around **£5–£25 per failure** when bank fees, support handling, customer communication, retry processing, and recovery overhead are included.
-
-DirectDebit IQ helps payment teams answer practical questions:
-
-- Which payments are most likely to fail before collection?
-- Which merchants, customers, banks, and mandate ages create the highest risk?
-- How much revenue is currently at risk?
-- Which payments should be retried first?
-- What retry date is likely to improve recovery?
-
----
-
-## Architecture
-
-```text
-+---------------------------+
-| Synthetic Payment Dataset |
-| data/generate_data.py     |
-+-------------+-------------+
-              |
-              v
-+---------------------------+        +--------------------------+
-| Raw Data Layer            |        | SQLite Analytics DB      |
-| data/raw/payments.csv     +------->| data/payments.db         |
-+-------------+-------------+        +------------+-------------+
-              |                                   |
-              v                                   v
-+---------------------------+        +--------------------------+
-| Feature Store             |        | SQL Analysis Layer       |
-| src/feature_store.py      |        | sql/*.sql                |
-+-------------+-------------+        +------------+-------------+
-              |                                   |
-              v                                   |
-+---------------------------+                     |
-| ML Training Pipeline      |                     |
-| src/train.py              |                     |
-| XGBoost failure model     |                     |
-+-------------+-------------+                     |
-              |                                   |
-              v                                   v
-+----------------------------------------------------------+
-| Streamlit Product Dashboard                              |
-| app/dashboard.py                                         |
-| Executive KPIs | Prediction | Retry | Explainability | SQL|
-+----------------------------------------------------------+
+```mermaid
+flowchart LR
+    P["Scheduled payment"] --> M["Risk scoring"]
+    M --> PA["Prediction audit<br/>version + threshold + trace ID"]
+    PA --> D{"Risk >= threshold?"}
+    D -->|No| N["Normal monitoring"]
+    D -->|Yes| R["Retry recommendation"]
+    R --> A{"Human approval"}
+    A -->|Rejected| RJ["Record reviewer decision"]
+    A -->|Approved| I["Idempotent retry execution"]
+    I --> O["Persist action outcome"]
+    PA --> T["Trace spans and structured logs"]
+    A --> T
+    I --> T
 ```
 
----
+The n8n workflow calls the same authenticated endpoints used by tests and the API documentation. It cannot execute a retry until a user with the `reviewer` or `admin` role records approval.
 
 ## Key Results
 
-| Metric | Result | Why it matters |
-|---|---:|---|
-| Dataset size | 50,000 payments | Large enough for realistic analytics and modelling |
-| Generated success rate | ~85% | Matches the target payment success profile |
-| Failure rate | ~15% | Creates realistic class imbalance |
-| ROC AUC | ~0.690 | Measures ranking quality for failure risk |
-| Average Precision | ~0.296 | Useful for imbalanced failure prediction |
-| F1 at threshold 0.30 | ~0.281 | Lower threshold catches more risky payments |
-| Recall at threshold 0.30 | ~0.945 | Captures most failed payments for proactive action |
-| Revenue at risk caught per 1,000 predictions | ~£59,092 | Business-focused model value metric |
+| Metric | Synthetic holdout result |
+|---|---:|
+| Dataset size | 50,000 payments |
+| ROC AUC | ~0.690 |
+| Average precision | ~0.296 |
+| Recall at threshold 0.30 | ~94.5% |
+| Governance evaluation | 7/7 controls passing |
 
-> Note: this is a synthetic portfolio project. The metrics are generated from realistic simulated payment patterns, not from private production data.
+Model metrics are from an out-of-time synthetic holdout. Benefit and ROI values in [`docs/BUSINESS_IMPACT.md`](docs/BUSINESS_IMPACT.md) are explicitly scenario estimates.
 
----
-
-## Tech Stack
-
-| Area | Tools |
-|---|---|
-| Data generation | Python, Faker, NumPy, pandas |
-| Storage | CSV, SQLite, SQLAlchemy |
-| Analytics | SQL, pandas, Plotly |
-| Machine learning | scikit-learn, XGBoost, imbalanced-learn |
-| Experiment tracking | MLflow |
-| Explainability | SHAP, feature importance |
-| Dashboard | Streamlit, Plotly |
-| Testing | pytest |
-| CI/CD | GitHub Actions |
-| Containerization | Docker, Docker Compose |
-
----
-
-## Project Structure
-
-```text
-directdebit-iq/
-├── app/
-│   └── dashboard.py
-├── data/
-│   ├── generate_data.py
-│   ├── payments.db
-│   ├── raw/payments.csv
-│   └── processed/
-├── dbt_models/
-│   ├── staging/
-│   └── marts/
-├── docs/
-│   ├── BUSINESS_IMPACT.md
-│   ├── DEPLOYMENT.md
-│   ├── DOCKER.md
-│   └── STREAMLIT_CLOUD_CHECKLIST.md
-├── models/
-│   ├── failure_predictor.pkl
-│   ├── failure_predictor_metrics.json
-│   └── failure_predictor_feature_importance.csv
-├── notebooks/
-│   ├── 01_eda.ipynb
-│   └── 02_failure_prediction.ipynb
-├── sql/
-│   ├── 01_monthly_success_rates.sql
-│   ├── 02_merchant_cohort_analysis.sql
-│   ├── 03_high_risk_customers.sql
-│   └── 04_bank_country_analysis.sql
-├── src/
-│   ├── config.py
-│   ├── data_pipeline.py
-│   ├── feature_store.py
-│   ├── mlflow_config.py
-│   ├── recommend.py
-│   ├── sql_runner.py
-│   ├── train.py
-│   └── utils.py
-├── tests/
-│   └── test_pipeline.py
-├── .github/workflows/ci.yml
-├── .streamlit/config.toml
-├── .dockerignore
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-├── runtime.txt
-├── Makefile
-├── streamlit_app.py
-└── README.md
-```
-
----
-
-## Quick Start Guide
-
-### 1. Clone the repository
+## Quick Start
 
 ```bash
 git clone https://github.com/RidhanPar/directdebit-iq.git
 cd directdebit-iq
-```
-
-### 2. Create and activate a virtual environment
-
-```bash
 python -m venv .venv
-source .venv/bin/activate      # macOS/Linux
-# .venv\Scripts\activate       # Windows PowerShell
-```
-
-### 3. Install dependencies
-
-```bash
-pip install --upgrade pip
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### 4. Generate synthetic payment data
-
-```bash
 python data/generate_data.py
+pytest -q
+python evaluations/run_action_evaluation.py
 ```
 
-This creates:
-
-```text
-data/raw/payments.csv
-data/payments.db
-```
-
-### 5. Run SQL analytics
-
-```bash
-python src/sql_runner.py
-```
-
-This exports CSV analysis outputs to:
-
-```text
-data/processed/sql_outputs/
-```
-
-### 6. Train the ML model and log experiments with MLflow
-
-```bash
-python src/train.py
-```
-
-This creates local model artifacts and logs the run to a local SQLite MLflow backend:
-
-```text
-models/failure_predictor.pkl
-models/failure_predictor_metrics.json
-models/failure_predictor_feature_importance.csv
-models/mlflow_artifacts/feature_importance_plot.html
-models/mlflow_artifacts/confusion_matrix.html
-mlflow.db
-```
-
-### 7. View experiment history in MLflow
-
-Run MLflow UI to view experiment history, compare runs, inspect metrics, and open logged artifacts:
-
-```bash
-mlflow ui --backend-store-uri sqlite:///mlflow.db
-```
-
-Then open the local MLflow page shown in the terminal, usually:
-
-```text
-http://127.0.0.1:5000
-```
-
-You can also use the Makefile shortcut:
-
-```bash
-make mlflow
-```
-
-### 8. Launch the Streamlit dashboard
+Run the dashboard and action API in separate terminals:
 
 ```bash
 streamlit run streamlit_app.py
-```
-
-The dashboard includes **Demo Mode**, enabled by default. If generated data, SQLite outputs, or model artifacts are missing, the app loads built-in sample data and uses transparent fallback scoring so reviewers can see the product working immediately.
-
----
-
-## Streamlit Cloud Deployment
-
-DirectDebit IQ is prepared for Streamlit Cloud deployment. Recruiters can open the live link and see the app working without uploading any files.
-
-Recommended Streamlit Cloud settings:
-
-| Setting | Value |
-|---|---|
-| Main file path | `streamlit_app.py` |
-| Python version | 3.10 or 3.11 (`runtime.txt` pins Python 3.10) |
-| Secrets | None required for demo mode |
-
-Deployment readiness checks are documented in [`docs/STREAMLIT_CLOUD_CHECKLIST.md`](docs/STREAMLIT_CLOUD_CHECKLIST.md).
-
-Demo Mode includes:
-
-- Built-in sample payment history if `data/raw/payments.csv` is missing.
-- Sample upcoming payments on the prediction page.
-- Fallback scoring if the trained model file is not present.
-- SQL analytics fallback if `data/payments.db` is not present.
-- Sidebar **About This Project** section with stack, GitHub, author, and LinkedIn.
-
----
-
-## Docker
-
-DirectDebit IQ includes Docker support for running the Streamlit dashboard in a reproducible container.
-
-Build the Docker image:
-
-```bash
-docker build -t directdebit-iq .
-```
-
-Run the Streamlit dashboard:
-
-```bash
-docker run --rm -p 8501:8501 directdebit-iq
+uvicorn api.main:app --reload --port 8000
 ```
 
 Open:
 
-```text
-http://localhost:8501
-```
+- Dashboard: `http://localhost:8501`
+- Action API docs: `http://localhost:8000/docs`
+- Action API health: `http://localhost:8000/health`
 
-Run the full stack with Streamlit and MLflow:
+Or start Streamlit, FastAPI, MLflow, and n8n together:
 
 ```bash
 docker compose up --build
 ```
 
-Or use Makefile shortcuts:
+## API Example
+
+Local demo users are `operator`, `reviewer`, and `admin`; each local-only password follows `<username>-demo`. Configure real identity and secrets before production use.
 
 ```bash
-make docker-build
-make docker-run
-make docker-compose
+curl -X POST http://localhost:8000/auth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=operator&password=operator-demo"
 ```
-
-More details are available in [`docs/DOCKER.md`](docs/DOCKER.md).
-
----
-
-## MLflow Experiment Tracking
-
-DirectDebit IQ uses MLflow so anyone cloning the repository can run experiments and compare model results in a local UI.
-
-Tracked items include:
-
-- XGBoost hyperparameters
-- AUC-ROC, Average Precision, F1, Precision, and Recall
-- Business metric: revenue at risk caught per 1,000 predictions
-- Serialized model artifact
-- Feature importance CSV
-- Feature importance plot
-- Confusion matrix plot
-
-Run training:
 
 ```bash
-python src/train.py
+curl -X POST http://localhost:8000/predictions \
+  -H "Authorization: Bearer <operator-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payment_id": "PAY-1001",
+    "payment_amount": 850,
+    "payment_date": "2026-06-16",
+    "mandate_age_days": 12,
+    "previous_failure_count": 4,
+    "estimated_balance_band": "low",
+    "days_since_last_success": 75
+  }'
 ```
 
-Run MLflow UI to view experiment history:
+The response includes the prediction version, threshold, trace ID, recommendation, and a pending approval action ID when risk exceeds the action threshold.
+
+## Governance Evaluation
+
+Run:
 
 ```bash
-mlflow ui --backend-store-uri sqlite:///mlflow.db
+python evaluations/run_action_evaluation.py
 ```
 
-Or use:
+The deterministic suite fails CI unless every specified workflow control passes:
 
-```bash
-make mlflow
-```
+1. High-risk routing to approval
+2. Low-risk no-action behavior
+3. Role-based access control
+4. Approval-gate enforcement
+5. Idempotent execution
+6. Complete audit and trace evidence
+7. Approval-safe agent planning
 
----
+The reported `100%` is the pass rate for these seven declared governance controls, not a claim of perfect model accuracy or a hiring guarantee.
 
-## SQL Analyses
+## Technology
 
-| SQL file | Purpose |
+| Layer | Technology |
 |---|---|
-| `01_monthly_success_rates.sql` | Tracks monthly total payments, success rate, failures, and month-over-month change |
-| `02_merchant_cohort_analysis.sql` | Finds merchant and mandate-age combinations with weak payment performance |
-| `03_high_risk_customers.sql` | Scores customers by failure count, failure rate, and failed amount |
-| `04_bank_country_analysis.sql` | Compares success rate by bank country and bank type, including common failure days |
+| Analytics and ML | Python, pandas, SQL, XGBoost, scikit-learn, SHAP |
+| Model lifecycle | MLflow, out-of-time holdout, model card |
+| Product surfaces | Streamlit, FastAPI, OpenAPI |
+| Persistence | SQLAlchemy, SQLite locally, PostgreSQL on Render |
+| Automation | n8n, optional OpenAI structured planner |
+| Governance | JWT/RBAC, human approval, audit events, idempotency |
+| Observability | Trace IDs, JSON logs, persisted spans |
+| Delivery | Docker Compose, GitHub Actions, Render Blueprint |
 
-Run all SQL analyses with:
+## Repository Map
 
-```bash
-python src/sql_runner.py
+```text
+api/                 Authenticated prediction/action API and governance services
+app/                 Thin dashboard entrypoint, product pages, and API client
+automation/          Importable n8n approval/retry workflow
+data/                Synthetic data generator and local artifacts
+docs/                API, architecture, deployment, model, and governance evidence
+evaluations/         Executable action-workflow control suite and results
+sql/                 Payment operations analyses
+src/                 Feature engineering, training, recommendations, and agent plan
+tests/               Unit, integration, artifact, and smoke tests
+render.yaml          Managed PostgreSQL and FastAPI cloud Blueprint
+docker-compose.yml   Dashboard, action API, MLflow, and n8n stack
 ```
 
-Or use the **📈 SQL Analytics** page inside the Streamlit dashboard.
+## Production Boundary
 
----
+Before connecting to real payments:
 
-## Dashboard Pages
+- Replace demo users with an enterprise identity provider.
+- Validate performance and calibration on governed historical data.
+- Add database migrations, secret rotation, rate limiting, and encrypted backups.
+- Complete privacy, fairness, operational-capacity, and rollback reviews.
+- Start in shadow mode, then use a measured champion/challenger release.
 
-### 📊 Executive Dashboard
-Portfolio-level KPIs, monthly success trends, failure distribution by bank country, and highest-risk merchants.
-
-### 🔮 Predict Payment Failures
-Upload upcoming scheduled payments and identify high-risk payments before collection.
-
-### 🔄 Retry Recommendations
-Prioritise high-risk or failed payments, recommend future retry dates, and estimate recoverable value.
-
-### 🧠 Why Did It Fail?
-Explainability page with SHAP-style reasoning and plain-English failure drivers.
-
-### 📈 SQL Analytics
-Interactive charts and raw SQL result tables for stakeholder analysis.
-
----
-
-## Live Demo
-
-**[Open the live DirectDebit IQ dashboard](https://directdebit-iq.streamlit.app/)**
-
-The dashboard loads immediately in Demo Mode, so reviewers do not need to upload CSV files or generate artifacts first.
-
----
-
-## Testing
-
-Run the full test suite:
-
-```bash
-pytest -q
-```
-
-Current tests validate:
-
-- Data generation columns and row count
-- Realistic success rate
-- Rolling feature creation
-- Leakage-safe historical features
-- Model training and prediction
-- Retry recommendation output
-- SQL query execution
-- Future-dated recommendation dates
-
----
-
-## Future Improvements
-
-- Real-time scoring API with FastAPI
-- Kafka integration for streaming payment events
-- A/B testing framework for retry strategies
-- Monitoring dashboard for model drift and payment success drift
-- More advanced SHAP explanations for operational users
-- dbt production model documentation and lineage
-- Automated data quality checks before model training
-
----
+See [`docs/SECURITY_AND_GOVERNANCE.md`](docs/SECURITY_AND_GOVERNANCE.md) for implemented controls and remaining production requirements.
 
 ## Portfolio Positioning
 
-DirectDebit IQ is designed to show end-to-end capability across data analytics, machine learning, SQL, product thinking, business problem framing, dashboarding, and deployment readiness.
-
-It is especially relevant for roles such as:
-
-- Data Analyst
-- BI Analyst
-- Product Analyst
-- Junior Data Scientist
-- Payments Analyst
-- Risk Analytics Analyst
-- AI Automation / Operations Analytics Specialist
+**Resume bullet:** Built a tested, Dockerized direct-debit risk platform using Python, SQL, XGBoost, and MLflow; achieved 94.5% recall on an out-of-time synthetic holdout and translated scores into prioritized retry recommendations.

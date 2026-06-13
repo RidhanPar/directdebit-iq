@@ -1,5 +1,7 @@
 # Business Impact Analysis
 
+> **Scenario notice:** every financial value in this memo is an illustrative scenario built from synthetic data and stated assumptions. It is not observed production benefit, a forecast, or a guarantee.
+
 ## Executive Summary
 
 DirectDebit IQ predicts high-risk payment failures before collection, allowing operations teams to intervene earlier, optimise retry timing, and prioritise the payments most likely to create revenue leakage. The current model uses customer payment history, mandate age, merchant-level risk, bank geography, balance band, and temporal patterns to produce a failure probability for each scheduled payment. At the selected operating threshold of 0.30, the model reaches **94.5% recall**, meaning it captures most known failure cases in the test set, with **0.690 ROC-AUC** and **0.296 average precision**.
@@ -84,9 +86,9 @@ Machine learning outperforms simple rule-based systems when the decision depends
 
 1. **Validate on real historical payment data** across multiple merchants, bank countries, payment types, and time periods. Confirm whether the synthetic-data signal transfers to production data.
 2. **Run a champion/challenger test** comparing the ML model against existing rules using the same operational capacity and the same review budget.
-3. **Deploy a real-time scoring API** that scores scheduled payments before collection and writes risk scores back to the payment operations workflow.
+3. **Run the implemented action API in shadow mode** and compare its recommendations with actual analyst decisions before enabling operational execution.
 4. **Create an A/B testing framework for retry strategies** to measure whether recommended retry dates increase recovery rates without increasing customer complaints.
-5. **Implement production monitoring and governance**, including data drift, performance drift, model explainability, retraining cadence, MLflow model registry, alert thresholds, and rollback procedures.
+5. **Extend the implemented governance baseline** with data drift, performance drift, retraining cadence, alert thresholds, privacy review, and rollback procedures.
 
 ## External Context Used
 

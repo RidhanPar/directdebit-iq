@@ -33,6 +33,12 @@ jobs:
       - name: Run pytest
         run: pytest -q
 
+      - name: Run focused action-service lint
+        run: ruff check api app/action_api_client.py src/operations_agent.py tests/test_action_api.py tests/test_deployment_artifacts.py evaluations/run_action_evaluation.py
+
+      - name: Run action workflow governance evaluation
+        run: python evaluations/run_action_evaluation.py
+
   code-quality:
     name: Run Code Quality Checks
     runs-on: ubuntu-latest
@@ -50,6 +56,8 @@ jobs:
         run: |
           python -m py_compile streamlit_app.py
           python -m py_compile app/dashboard.py
+          python -m py_compile app/pages.py
+          python -m py_compile api/*.py
           python -m py_compile src/*.py
           python -m py_compile data/generate_data.py
 
@@ -59,6 +67,11 @@ jobs:
           test -f requirements.txt
           test -f streamlit_app.py
           test -f app/dashboard.py
+          test -f app/pages.py
+          test -f api/main.py
+          test -f automation/n8n_retry_approval_workflow.json
+          test -f evaluations/action_workflow_cases.json
+          test -f docs/SECURITY_AND_GOVERNANCE.md
           test -f src/train.py
           test -f src/feature_store.py
           test -f src/sql_runner.py
@@ -98,3 +111,14 @@ jobs:
           if [ "${code:-0}" -ne 0 ] && [ "${code:-0}" -ne 124 ]; then
             exit "$code"
           fi
+
+      - name: Validate action API health
+        run: |
+          uvicorn api.main:app --host 127.0.0.1 --port 8000 &
+          api_pid=$!
+          sleep 5
+          curl --fail http://127.0.0.1:8000/health
+          kill "$api_pid"
+
+      - name: Validate API container build
+        run: docker build -f Dockerfile.api -t directdebit-iq-action-api .

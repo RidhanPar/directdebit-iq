@@ -1,4 +1,18 @@
 services:
+  action-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: directdebit-iq-action-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ACTION_DATABASE_URL=sqlite:///./data/actions.db
+      - JWT_SECRET=${JWT_SECRET:-unsafe-local-compose-secret}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ./data:/app/data
+
   app:
     build:
       context: .
@@ -11,8 +25,25 @@ services:
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
       - STREAMLIT_SERVER_PORT=8501
       - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - DDIQ_ACTION_API_URL=http://action-api:8000
     depends_on:
+      - action-api
       - mlflow
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: directdebit-iq-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - DDIQ_API_URL=http://action-api:8000
+      - DDIQ_OPERATOR_JWT=${DDIQ_OPERATOR_JWT:-}
+      - DDIQ_REVIEWER_JWT=${DDIQ_REVIEWER_JWT:-}
+    depends_on:
+      - action-api
+    volumes:
+      - n8n_data:/home/node/.n8n
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:latest
@@ -27,3 +58,6 @@ services:
       --default-artifact-root /mlflow/artifacts
       --host 0.0.0.0
       --port 5000
+
+volumes:
+  n8n_data:

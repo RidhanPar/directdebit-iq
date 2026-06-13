@@ -10,6 +10,7 @@ env/
 ENV/
 .ipynb_checkpoints/
 .pytest_cache/
+.pytest-*/
 
 # Environment
 .env

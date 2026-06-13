@@ -1,0 +1,25 @@
+databases:
+  - name: directdebit-iq-actions-db
+    databaseName: directdebit_actions
+    user: directdebit_iq
+    plan: free
+
+services:
+  - type: web
+    name: directdebit-iq-action-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    plan: free
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: ACTION_DATABASE_URL
+        fromDatabase:
+          name: directdebit-iq-actions-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5-mini

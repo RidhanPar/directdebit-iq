@@ -1,0 +1,50 @@
+{
+  "suite": "action-workflow-governance",
+  "passed": 7,
+  "total": 7,
+  "score_percent": 100.0,
+  "results": [
+    {
+      "id": "high-risk-routes-to-approval",
+      "control": "High-risk scores create a pending human-approval action.",
+      "passed": true,
+      "evidence": "pending approval action created"
+    },
+    {
+      "id": "low-risk-does-not-create-action",
+      "control": "Low-risk scores do not create unnecessary operational actions.",
+      "passed": true,
+      "evidence": "approval_action_id is null"
+    },
+    {
+      "id": "rbac-enforced",
+      "control": "Operators cannot approve their own retry actions.",
+      "passed": true,
+      "evidence": "HTTP 403"
+    },
+    {
+      "id": "approval-gate-enforced",
+      "control": "Unapproved actions cannot execute.",
+      "passed": true,
+      "evidence": "HTTP 409"
+    },
+    {
+      "id": "execution-is-idempotent",
+      "control": "Repeated execution with the approved idempotency key has one outcome.",
+      "passed": true,
+      "evidence": "retry_scheduled:2026-06-18"
+    },
+    {
+      "id": "audit-and-trace-complete",
+      "control": "Prediction, review, execution, and trace evidence are queryable.",
+      "passed": true,
+      "evidence": "events=['prediction.created', 'retry.executed', 'retry.reviewed']; spans=1"
+    },
+    {
+      "id": "agent-plan-is-approval-safe",
+      "control": "Agent plans use the approved tool catalog and gate execution on review.",
+      "passed": true,
+      "evidence": "source=deterministic_fallback; tools=['score_payment', 'create_retry_recommendation', 'request_human_approval', 'execute_retry']"
+    }
+  ]
+}
