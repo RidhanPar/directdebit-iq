@@ -34,7 +34,7 @@ jobs:
         run: pytest -q
 
       - name: Run focused action-service lint
-        run: ruff check api app/action_api_client.py src/operations_agent.py tests/test_action_api.py tests/test_deployment_artifacts.py evaluations/run_action_evaluation.py
+        run: ruff check api app/action_api_client.py src/operations_agent.py tests/conftest.py tests/test_action_api.py tests/test_deployment_artifacts.py evaluations/run_action_evaluation.py
 
       - name: Run action workflow governance evaluation
         run: python evaluations/run_action_evaluation.py
