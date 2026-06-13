@@ -30,7 +30,7 @@ DDIQ_OPERATOR_JWT=<operator token>
 DDIQ_REVIEWER_JWT=<reviewer token>
 ```
 
-The workflow receives a payment webhook, creates a prediction, waits on high-risk cases, records a reviewer decision, and executes only approved actions.
+The workflow receives a payment webhook, creates a prediction, waits on high-risk cases, records a reviewer decision, and schedules only approved demo actions. It does not connect to a payment processor.
 
 ## Agent Planner
 

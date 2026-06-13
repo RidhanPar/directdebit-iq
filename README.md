@@ -23,8 +23,8 @@ DirectDebit IQ predicts scheduled payment failures, explains the risk, recommend
 | Risk model and out-of-time evaluation | [`src/train.py`](src/train.py), [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) |
 | SQL analytics and reproducible feature pipeline | [`sql/`](sql/), [`src/feature_store.py`](src/feature_store.py) |
 | Stakeholder dashboard and modular page boundary | [`app/dashboard.py`](app/dashboard.py), [`app/pages.py`](app/pages.py), [`app/automation_page.py`](app/automation_page.py), [`app/action_api_client.py`](app/action_api_client.py) |
-| Authenticated production API | [`api/main.py`](api/main.py), [`api/auth.py`](api/auth.py) |
-| Human approval and real retry execution | [`api/service.py`](api/service.py), [`automation/n8n_retry_approval_workflow.json`](automation/n8n_retry_approval_workflow.json) |
+| Authenticated action API | [`api/main.py`](api/main.py), [`api/auth.py`](api/auth.py) |
+| Human approval and retry-scheduling workflow | [`api/service.py`](api/service.py), [`automation/n8n_retry_approval_workflow.json`](automation/n8n_retry_approval_workflow.json) |
 | Prediction, reviewer, and action audit records | [`api/models.py`](api/models.py) |
 | Trace IDs, structured logs, and persisted spans | [`api/observability.py`](api/observability.py) |
 | Approval-safe optional LLM planner | [`src/operations_agent.py`](src/operations_agent.py) |
@@ -141,7 +141,7 @@ The deterministic suite fails CI unless every specified workflow control passes:
 6. Complete audit and trace evidence
 7. Approval-safe agent planning
 
-The reported `100%` is the pass rate for these seven declared governance controls, not a claim of perfect model accuracy or a hiring guarantee.
+The checked-in result reports the pass rate for these seven declared governance controls. It is separate from predictive-model accuracy.
 
 ## Technology
 

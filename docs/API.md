@@ -50,4 +50,4 @@ Use environment-specific passwords and a strong `JWT_SECRET` outside local demon
 }
 ```
 
-An action starts as `pending`. Only `reviewer` or `admin` can change it to `approved` or `rejected`. Execution fails with HTTP `409` unless the action is approved and the caller supplies the action's idempotency key.
+An action starts as `pending`. Only `reviewer` or `admin` can change it to `approved` or `rejected`. Scheduling fails with HTTP `409` unless the action is approved and the caller supplies the action's idempotency key. The demo records a scheduling outcome; it does not call a payment processor.
