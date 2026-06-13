@@ -4,7 +4,7 @@ MLFLOW ?= mlflow
 IMAGE_NAME ?= directdebit-iq
 COMPOSE ?= docker compose
 
-.PHONY: install data sql train test app mlflow docker-build docker-run docker-compose all
+.PHONY: install data sql train test evaluate api app mlflow docker-build docker-run docker-compose all
 
 install:
 	$(PYTHON) -m pip install --upgrade pip
@@ -21,6 +21,12 @@ train:
 
 test:
 	pytest -q
+
+evaluate:
+	$(PYTHON) evaluations/run_action_evaluation.py
+
+api:
+	uvicorn api.main:app --reload --port 8000
 
 app:
 	$(STREAMLIT) run streamlit_app.py

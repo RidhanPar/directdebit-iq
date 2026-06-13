@@ -25,7 +25,13 @@ It must not be used to automatically reject, delay, or alter real customer payme
 - Historical data may encode merchant or geographic bias.
 - Model performance and calibration may drift over time.
 - Actions should remain reviewable, explainable, monitored, and reversible.
+- High-risk scores create pending recommendations, not automatic customer-impacting actions.
+- Every action records the prediction version, threshold, reviewer decision, outcome, and trace ID.
 
 ## Monitoring Recommendation
 
 Monitor data quality, score distribution, calibration, average precision, recall at fixed review capacity, merchant-level performance, and operational outcomes from retry actions.
+
+## Operational Governance
+
+The action service enforces JWT roles, human approval, idempotent execution, and an audit ledger. These controls demonstrate an operating model but do not replace production validation, compliance review, or enterprise identity management.

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "high-risk-routes-to-approval",
+    "control": "High-risk scores create a pending human-approval action."
+  },
+  {
+    "id": "low-risk-does-not-create-action",
+    "control": "Low-risk scores do not create unnecessary operational actions."
+  },
+  {
+    "id": "rbac-enforced",
+    "control": "Operators cannot approve their own retry actions."
+  },
+  {
+    "id": "approval-gate-enforced",
+    "control": "Unapproved actions cannot execute."
+  },
+  {
+    "id": "execution-is-idempotent",
+    "control": "Repeated execution with the approved idempotency key has one outcome."
+  },
+  {
+    "id": "audit-and-trace-complete",
+    "control": "Prediction, review, execution, and trace evidence are queryable."
+  },
+  {
+    "id": "agent-plan-is-approval-safe",
+    "control": "Agent plans use the approved tool catalog and gate execution on review."
+  }
+]
