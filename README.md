@@ -12,7 +12,7 @@
 
 [Open live dashboard](https://directdebit-iq.streamlit.app/) | [API documentation](docs/API.md) | [Security and governance](docs/SECURITY_AND_GOVERNANCE.md) | [Evaluation scorecard](docs/EVALUATION_SCORECARD.md)
 
-DirectDebit IQ predicts scheduled payment failures, explains the risk, recommends a retry, and turns high-risk scores into governed operational actions. Customer-impacting retries require a reviewer decision, carry an idempotency key, and produce queryable audit and trace evidence.
+DirectDebit IQ predicts scheduled payment failures, explains the risk, recommends a retry, and turns high-risk scores into governed operational actions. Customer-impacting retries require a reviewer decision, carry an idempotency key, and produce queryable audit and trace evidence. The risk and retry logic is directly analogous to card authorisation and retry strategies in card acquiring environments — making the project relevant to any team managing payment failure rates and transaction recovery.
 
 > **Evidence boundary:** the dataset and financial benefit estimates are synthetic scenarios. The project demonstrates engineering, analytics, and governance controls; it does not claim validated production performance or guaranteed financial return.
 
@@ -62,6 +62,13 @@ The n8n workflow calls the same authenticated endpoints used by tests and the AP
 | Governance evaluation | 7/7 controls passing |
 
 Model metrics are from an out-of-time synthetic holdout. Benefit and ROI values in [`docs/BUSINESS_IMPACT.md`](docs/BUSINESS_IMPACT.md) are explicitly scenario estimates.
+
+## Payment Operations Context
+
+- Direct debit failures map to card decline scenarios in acquiring
+- The retry governance workflow mirrors chargeback and dispute handling logic
+- The audit trail (prediction → approval → execution → outcome) is the same pattern used in card network compliance reporting
+- KPIs tracked (failure rate, retry recovery rate, reviewer decision time) are the same metrics used by payment operations teams
 
 ## Quick Start
 
@@ -150,7 +157,7 @@ The checked-in result reports the pass rate for these seven declared governance 
 | Analytics and ML | Python, pandas, SQL, XGBoost, scikit-learn, SHAP |
 | Model lifecycle | MLflow, out-of-time holdout, model card |
 | Product surfaces | Streamlit, FastAPI, OpenAPI |
-| Persistence | SQLAlchemy, SQLite locally, PostgreSQL on Render |
+| Data Layer | SQLAlchemy, dbt models, SQLite locally, PostgreSQL on Render |
 | Automation | n8n, optional OpenAI structured planner |
 | Governance | JWT/RBAC, human approval, audit events, idempotency |
 | Observability | Trace IDs, JSON logs, persisted spans |
