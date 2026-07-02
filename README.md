@@ -16,6 +16,11 @@ DirectDebit IQ predicts scheduled payment failures, explains the risk, recommend
 
 > **Evidence boundary:** the dataset and financial benefit estimates are synthetic scenarios. The project demonstrates engineering, analytics, and governance controls; it does not claim validated production performance or guaranteed financial return.
 
+The retry strategy this system recommends is exactly what gets tested end to end in
+[payment-retry-ab-test](https://github.com/RidhanPar/payment-retry-ab-test), a full A/B test
+readout on whether a smart retry timing strategy actually recovers more failed payments than a
+fixed schedule.
+
 ## Five-Minute Review
 
 | Capability | Evidence |
